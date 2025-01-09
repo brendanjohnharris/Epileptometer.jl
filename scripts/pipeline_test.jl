@@ -64,14 +64,3 @@ begin # * Plot
     linkaxes!(ax, axx)
     fig
 end
-
-if false
-    map(layout |> files) do file
-        X, e = formateeg(file)
-        Off = X[𝑡 = .!e]
-        On = X[𝑡 = e]
-        Foff = catch24.(Off)
-        Fon = catch24(On)
-        return (Foff, Fon)
-    end
-end
