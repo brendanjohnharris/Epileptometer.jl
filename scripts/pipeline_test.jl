@@ -18,6 +18,8 @@ using DataFrames
 using CairoMakie
 using MultivariateStats
 
+WINDOWLEN = 2000 # Samples, arbitrary choice
+
 function makeflat(F)
     f = permutedims(F, (Feat, :channel, Obs)) # * So that observations are on rows
     e = lookup(f, Obs)
@@ -29,51 +31,41 @@ begin # * Check out data and select a subject
     layout = Layout(datadir("BIDS_Siena"))
     subject = layout |> subjects |> first
     session = subject |> sessions |> first
-    file = session |> files |> first
 end
 begin # * LDA on Foff and Fon (probably should do ICA first to pull out signals that are consistent across subjects)
-    F = calculate(subject)
-
-    f = permutedims(F, (Feat, :channel, Obs)) # * So that observations are on rows
-    e = lookup(f, Obs)
-    f = reshape(f, :, size(f, 3))
+    F = calculate(session; windowlen = WINDOWLEN)
     f, e = makeflat(F)
     f[isnan.(f)] .= 0 # ! Hackety hack
     m = fit(MulticlassLDA, f, e; outdim = 2)
     fpred = predict(m, f)
 end
 begin # * Plot
-    f = Figure()
-    ax = Axis(f[1, 1])
+    fig = Figure(size = (800, 400))
+    ax = Axis(fig[1, 1])
     fpred_on = fpred[:, e .== 1]
     fpred_off = fpred[:, e .== 0]
-    scatter!(ax, Point2f.(eachcol(fpred_off)), color = :blue, alpha = 0.5)
-    scatter!(ax, Point2f.(eachcol(fpred_on)), color = :red, alpha = 0.5)
-    f
+    scatter!(ax, Point2f.(eachcol(fpred_off)), color = :cornflowerblue, alpha = 0.5)
+    scatter!(ax, Point2f.(eachcol(fpred_on)), color = :crimson, alpha = 0.5)
+    fig
 end
 
 begin # * Try on a different session (same subject)
     subject = layout |> subjects |> first
     session = subject |> sessions |> last
-    file = session |> files |> first
 end
 begin # * LDA on Foff and Fon (probably should do ICA first to pull out signals that are consistent across subjects)
-    F = calculate(subject)
-    f = permutedims(F, (Feat, :channel, Obs)) # * So that observations are on rows
-    e = lookup(f, Obs)
-    f = reshape(f, :, size(f, 3))
-    f, e = makeflat(F)
-    f[isnan.(f)] .= 0 # ! Hackety hack
-    fpred = predict(m, f) # Using the LDA model from a different session
+    Ft = calculate(session; windowlen = WINDOWLEN)
+    ft, et = makeflat(F)
+    ft[isnan.(ft)] .= 0 # ! Hackety hack
+    ftpred = predict(m, ft) # Using the LDA model from a different session
 end
 begin # * Plot
-    f = Figure()
-    ax = Axis(f[1, 1])
-    fpred_on = fpred[:, e .== 1]
-    fpred_off = fpred[:, e .== 0]
-    scatter!(ax, Point2f.(eachcol(fpred_off)), color = :blue, alpha = 0.5)
-    scatter!(ax, Point2f.(eachcol(fpred_on)), color = :red, alpha = 0.5)
-    f
+    ax = Axis(fig[1, 2])
+    ftpred_on = ftpred[:, e .== 1]
+    ftpred_off = ftpred[:, e .== 0]
+    scatter!(ax, Point2f.(eachcol(fpred_off)), color = :cornflowerblue, alpha = 0.5)
+    scatter!(ax, Point2f.(eachcol(fpred_on)), color = :crimson, alpha = 0.5)
+    fig
 end
 
 if false
