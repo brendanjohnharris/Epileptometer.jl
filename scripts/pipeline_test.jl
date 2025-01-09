@@ -18,7 +18,7 @@ using DataFrames
 using CairoMakie
 using MultivariateStats
 
-WINDOWLEN = 2000 # Samples, arbitrary choice
+WINDOWLEN = 2560 # Samples, arbitrary choice, 10s at 256 Hz
 
 function makeflat(F)
     f = permutedims(F, (Feat, :channel, Obs)) # * So that observations are on rows
@@ -30,7 +30,6 @@ end
 begin # * Check out data and select a subject
     layout = Layout(datadir("BIDS_Siena"))
     subject = layout |> subjects |> first
-    session = subject |> sessions |> first
 end
 begin # * LDA on Foff and Fon (probably should do ICA first to pull out signals that are consistent across subjects)
     F = calculate(session; windowlen = WINDOWLEN)
@@ -41,7 +40,7 @@ begin # * LDA on Foff and Fon (probably should do ICA first to pull out signals 
 end
 begin # * Plot
     fig = Figure(size = (800, 400))
-    ax = Axis(fig[1, 1])
+    ax = Axis(fig[1, 1]; title = "Subject $(subject.identifier)")
     fpred_on = fpred[:, e .== 1]
     fpred_off = fpred[:, e .== 0]
     scatter!(ax, Point2f.(eachcol(fpred_off)), color = :cornflowerblue, alpha = 0.5)
@@ -49,22 +48,20 @@ begin # * Plot
     fig
 end
 
-begin # * Try on a different session (same subject)
-    subject = layout |> subjects |> first
-    session = subject |> sessions |> last
-end
-begin # * LDA on Foff and Fon (probably should do ICA first to pull out signals that are consistent across subjects)
-    Ft = calculate(session; windowlen = WINDOWLEN)
-    ft, et = makeflat(F)
+begin # * Try on a different subject
+    subject = layout |> subjects |> last
+    Ft = calculate(subject; windowlen = WINDOWLEN)
+    ft, et = makeflat(Ft)
     ft[isnan.(ft)] .= 0 # ! Hackety hack
     ftpred = predict(m, ft) # Using the LDA model from a different session
 end
 begin # * Plot
-    ax = Axis(fig[1, 2])
-    ftpred_on = ftpred[:, e .== 1]
-    ftpred_off = ftpred[:, e .== 0]
-    scatter!(ax, Point2f.(eachcol(fpred_off)), color = :cornflowerblue, alpha = 0.5)
-    scatter!(ax, Point2f.(eachcol(fpred_on)), color = :crimson, alpha = 0.5)
+    axx = Axis(fig[1, 2]; title = "Subject $(subject.identifier)")
+    ftpred_on = ftpred[:, et .== 1]
+    ftpred_off = ftpred[:, et .== 0]
+    scatter!(axx, Point2f.(eachcol(ftpred_off)), color = :cornflowerblue, alpha = 0.5)
+    scatter!(axx, Point2f.(eachcol(ftpred_on)), color = :crimson, alpha = 0.5)
+    linkaxes!(ax, axx)
     fig
 end
 
